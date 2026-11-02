@@ -14,6 +14,8 @@ import {
   Maximize2,
   Shield,
   Crosshair,
+  X,
+  Skull,
 } from 'lucide-react';
 import { GameEngine, GameEngineState } from '../game/GameEngine';
 import { TOWERS } from '../data/towers';
@@ -39,6 +41,31 @@ export const GameHUD: React.FC<GameHUDProps> = ({
 
   const selectedTower = state.placedTowers.find((t) => t.id === state.selectedTowerId);
   const selectedSocket = state.map.sockets.find((s) => s.id === state.selectedSocketId);
+  const selectedEnemy = state.selectedEnemyId
+    ? engine.enemies.find((e) => e.id === state.selectedEnemyId)
+    : null;
+
+  const enemyNamesPt: Record<string, string> = {
+    void: 'O VAZIO',
+    false_one: 'O FALSO',
+    stepper: 'O ANDARILHO',
+    materialist: 'O MATERIALISTA',
+    agitator: 'O AGITADOR',
+    silencer: 'O SILENCIADOR',
+    stranger: 'O ESTRANHO',
+    great_void: 'O GRANDE VAZIO',
+  };
+
+  const enemyNamesEn: Record<string, string> = {
+    void: 'THE VOID',
+    false_one: 'THE FALSE ONE',
+    stepper: 'THE STEPPER',
+    materialist: 'THE MATERIALIST',
+    agitator: 'THE AGITATOR',
+    silencer: 'THE SILENCER',
+    stranger: 'THE STRANGER',
+    great_void: 'THE GREAT VOID',
+  };
 
   // Tower configs list for building
   const towerTypes: TowerType[] = [
@@ -310,7 +337,69 @@ export const GameHUD: React.FC<GameHUDProps> = ({
         </div>
 
         {/* Center / Right: Dynamic Dock depending on selection */}
-        {selectedTower ? (
+        {/* Center / Right: Dynamic Dock depending on selection */}
+        {selectedEnemy ? (
+          // INSPECT SELECTED ENEMY INTEL & POWER (BIG, BOLD, AND FULLY LEGIBLE)
+          <div className="bg-[#09021a]/95 border-2 border-red-500/80 rounded-lg p-2 sm:p-2.5 shadow-[0_0_25px_rgba(255,0,85,0.4)] backdrop-blur-md flex items-center gap-2.5 sm:gap-4 max-w-full overflow-x-auto">
+            {/* Enemy Icon & Power */}
+            <div className="flex items-center gap-2 pr-2.5 border-r border-red-500/40 shrink-0">
+              <div
+                className="w-9 h-9 sm:w-10 sm:h-10 rounded flex items-center justify-center font-bold text-lg shadow-inner shrink-0"
+                style={{
+                  backgroundColor: `${selectedEnemy.color}25`,
+                  color: selectedEnemy.color,
+                  border: `2px solid ${selectedEnemy.color}`,
+                }}
+              >
+                {selectedEnemy.isBoss ? '👑' : selectedEnemy.armor > 0 ? '🛡️' : '👾'}
+              </div>
+              <div className="whitespace-nowrap">
+                <div className="text-[10px] sm:text-xs font-arcade font-bold text-white flex items-center gap-2 whitespace-nowrap">
+                  <span>{isPt ? enemyNamesPt[selectedEnemy.type] || selectedEnemy.type.toUpperCase() : enemyNamesEn[selectedEnemy.type] || selectedEnemy.type.toUpperCase()}</span>
+                  {selectedEnemy.isBoss && (
+                    <span className="text-[8px] sm:text-[9px] font-arcade px-1.5 py-0.5 rounded bg-pink-500/20 text-pink-300 border border-pink-400">
+                      BOSS [PHASE {selectedEnemy.phase || 1}]
+                    </span>
+                  )}
+                </div>
+                {/* BIG ENEMY POWER TEXT */}
+                <div className="text-xs sm:text-sm font-tech font-bold text-yellow-300 flex items-center gap-2 whitespace-nowrap mt-0.5">
+                  <span className="text-cyan-400 font-arcade text-[9px] sm:text-[10px]">POWER:</span>
+                  <span className="text-sm sm:text-base font-bold text-white">{Math.ceil(selectedEnemy.health)}</span>
+                  <span className="text-slate-400 text-xs">/ {selectedEnemy.maxHealth} HP</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Armor & Combat Attributes */}
+            <div className="flex items-center gap-2 text-xs font-tech text-slate-200 shrink-0 whitespace-nowrap">
+              {selectedEnemy.armor > 0 ? (
+                <div className="px-2 py-1 bg-red-950/70 border border-red-500/60 rounded flex items-center gap-1.5 text-red-300 font-bold">
+                  <Shield className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                  <span>ARMOR: {Math.round(selectedEnemy.armor * 100)}% (Weak to Solar Crucible)</span>
+                </div>
+              ) : (
+                <div className="px-2 py-1 bg-cyan-950/60 border border-cyan-500/50 rounded flex items-center gap-1.5 text-cyan-300">
+                  <span>SPD: {selectedEnemy.speed}px/s · STANDARD DEFENSE</span>
+                </div>
+              )}
+              {selectedEnemy.isCloaked && (
+                <div className="px-2 py-1 bg-indigo-950/70 border border-indigo-400/60 rounded text-indigo-300 text-xs">
+                  <span>STEALTH (Needs Astral Eye)</span>
+                </div>
+              )}
+            </div>
+
+            {/* Deselect / Close */}
+            <button
+              onClick={() => engine.deselect()}
+              className="p-1 sm:p-1.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded text-slate-300 hover:text-white transition-all active:scale-95 shrink-0 ml-auto"
+              title="Deselect Enemy"
+            >
+              <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            </button>
+          </div>
+        ) : selectedTower ? (
           // INSPECT / UPGRADE / DISMANTLE EXISTING TOWER (ARCADE DATASHEET - SINGLE LINE)
           <div className="bg-[#09021a]/95 border-2 border-cyan-400 rounded-lg p-2 sm:p-2.5 shadow-[0_0_20px_rgba(0,240,255,0.3)] backdrop-blur-md flex items-center gap-2 sm:gap-3 max-w-full overflow-x-auto">
             {/* Tower icon & name */}
@@ -426,11 +515,22 @@ export const GameHUD: React.FC<GameHUDProps> = ({
             })}
           </div>
         ) : (
-          // IDLE RETRO MARQUEE HINT (SINGLE LINE)
-          <div className="px-3 py-1 bg-[#09021a]/90 border border-cyan-500/30 rounded text-[8px] sm:text-[9px] font-arcade text-cyan-300/80 shadow backdrop-blur-sm hidden sm:block whitespace-nowrap">
-            {isPt
-              ? '▲ TOQUE NO SOQUETE PARA CONSTRUIR · TOQUE NA TORRE PARA APRIMORAR ▲'
-              : '▲ TAP SOCKET TO DEPLOY WEAPON · TAP TOWER TO UPGRADE ▲'}
+          // IDLE RETRO MARQUEE HINT (SHOWS LIVE ENEMY COUNT & PROMPT)
+          <div className="px-3 py-1.5 bg-[#09021a]/90 border border-cyan-500/30 rounded text-[8px] sm:text-[9px] font-arcade text-cyan-300/90 shadow backdrop-blur-sm hidden sm:flex items-center gap-2 whitespace-nowrap">
+            {state.isWaveActive && engine.enemies.length > 0 ? (
+              <span className="text-yellow-300 flex items-center gap-1.5">
+                <Skull className="w-3.5 h-3.5 text-red-400 animate-pulse" />
+                <span>
+                  {engine.enemies.length} {isPt ? 'INVASORES ATIVOS · TOQUE EM UM INIMIGO PARA DETALHES' : 'INVADERS ACTIVE · TAP ENEMY FOR INTEL'}
+                </span>
+              </span>
+            ) : (
+              <span>
+                {isPt
+                  ? '▲ TOQUE NO SOQUETE PARA CONSTRUIR · TOQUE NA TORRE PARA APRIMORAR ▲'
+                  : '▲ TAP SOCKET TO DEPLOY WEAPON · TAP TOWER TO UPGRADE ▲'}
+              </span>
+            )}
           </div>
         )}
       </div>

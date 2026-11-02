@@ -27,6 +27,7 @@ export interface GameEngineState {
   spiralResonance: number; // 0 - 100
   selectedTowerId: string | null;
   selectedSocketId: string | null;
+  selectedEnemyId?: string | null;
   placedTowers: PlacedTower[];
   score: number;
   enemiesBanishedCount: number;
@@ -87,6 +88,7 @@ export class GameEngine {
       spiralResonance: 0,
       selectedTowerId: null,
       selectedSocketId: null,
+      selectedEnemyId: null,
       placedTowers: [],
       score: 0,
       enemiesBanishedCount: 0,
@@ -469,7 +471,21 @@ export class GameEngine {
 
   // SELECTION & TAP HANDLING
   public handleTap(virtualX: number, virtualY: number) {
-    // 1. Check if tap is on a placed tower
+    // 1. Check if tap is on an enemy (priority tap target)
+    const tappedEnemy = this.enemies.find((e) => {
+      const dist = Math.hypot(e.x - virtualX, e.y - virtualY);
+      return dist <= Math.max(30, e.radius + 14);
+    });
+
+    if (tappedEnemy) {
+      this.state.selectedEnemyId = tappedEnemy.id;
+      this.state.selectedTowerId = null;
+      this.state.selectedSocketId = null;
+      this.notifyState();
+      return;
+    }
+
+    // 2. Check if tap is on a placed tower
     const tappedTower = this.state.placedTowers.find((t) => {
       const dist = Math.hypot(t.x - virtualX, t.y - virtualY);
       return dist <= 28;
@@ -478,11 +494,12 @@ export class GameEngine {
     if (tappedTower) {
       this.state.selectedTowerId = tappedTower.id;
       this.state.selectedSocketId = null;
+      this.state.selectedEnemyId = null;
       this.notifyState();
       return;
     }
 
-    // 2. Check if tap is on an empty socket
+    // 3. Check if tap is on an empty socket
     const tappedSocket = this.state.map.sockets.find((s) => {
       const dist = Math.hypot(s.x - virtualX, s.y - virtualY);
       return dist <= 28;
@@ -493,20 +510,23 @@ export class GameEngine {
       if (!isOccupied) {
         this.state.selectedSocketId = tappedSocket.id;
         this.state.selectedTowerId = null;
+        this.state.selectedEnemyId = null;
         this.notifyState();
         return;
       }
     }
 
-    // 3. Tap empty space: deselect
+    // 4. Tap empty space: deselect
     this.state.selectedTowerId = null;
     this.state.selectedSocketId = null;
+    this.state.selectedEnemyId = null;
     this.notifyState();
   }
 
   public deselect() {
     this.state.selectedTowerId = null;
     this.state.selectedSocketId = null;
+    this.state.selectedEnemyId = null;
     this.notifyState();
   }
 
@@ -697,6 +717,9 @@ export class GameEngine {
   }
 
   private handleEnemyBreach(enemy: ActiveEnemy) {
+    if (this.state.selectedEnemyId === enemy.id) {
+      this.state.selectedEnemyId = null;
+    }
     let damage = enemy.isBoss ? 45 : enemy.type === 'materialist' ? 15 : enemy.type === 'stranger' ? 20 : 6;
     this.state.equilibrium = Math.max(0, this.state.equilibrium - damage);
 
@@ -1029,6 +1052,9 @@ export class GameEngine {
   }
 
   private banishEnemy(enemy: ActiveEnemy, killerTower: PlacedTower | null) {
+    if (this.state.selectedEnemyId === enemy.id) {
+      this.state.selectedEnemyId = null;
+    }
     const idx = this.enemies.indexOf(enemy);
     if (idx !== -1) {
       this.enemies.splice(idx, 1);
@@ -1712,25 +1738,65 @@ export class GameEngine {
 
     const config = TOWERS[tower.type];
     const tierStats = config.tiers[tower.tier - 1];
+    const range = tierStats.range;
+    const time = this.globalTime;
 
     ctx.save();
     ctx.translate(Math.floor(tower.x), Math.floor(tower.y));
 
-    // Stepped pixel radar boundary
+    // 1. Semi-transparent circular attack zone fill
+    ctx.beginPath();
+    ctx.arc(0, 0, range, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(0, 240, 255, 0.08)';
+    ctx.fill();
+
+    // 2. Faint concentric inner guide circle (50% range)
+    ctx.beginPath();
+    ctx.arc(0, 0, range * 0.5, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(0, 240, 255, 0.22)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 6]);
+    ctx.stroke();
+
+    // 3. Main attack radius boundary: CIRCLE with animated dash pattern
+    ctx.beginPath();
+    ctx.arc(0, 0, range, 0, Math.PI * 2);
     ctx.strokeStyle = '#00f0ff';
-    ctx.lineWidth = 1.5;
-    ctx.setLineDash([4, 4]);
-    ctx.strokeRect(-tierStats.range, -tierStats.range, tierStats.range * 2, tierStats.range * 2);
+    ctx.lineWidth = 2;
+    ctx.setLineDash([8, 6]);
+    ctx.lineDashOffset = -time * 24;
+    ctx.stroke();
     ctx.setLineDash([]);
 
-    // Pixel corner brackets
+    // 4. Subtle glowing outer ring
+    ctx.beginPath();
+    ctx.arc(0, 0, range + 2, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(0, 240, 255, 0.35)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // 5. Circle cardinal crosshair ticks at North, East, South, West along the circumference
     ctx.strokeStyle = '#ffe600';
     ctx.lineWidth = 2;
-    const r = tierStats.range;
-    ctx.strokeRect(-r, -r, 12, 12);
-    ctx.strokeRect(r - 12, -r, 12, 12);
-    ctx.strokeRect(-r, r - 12, 12, 12);
-    ctx.strokeRect(r - 12, r - 12, 12, 12);
+    const tickLen = 8;
+    [0, Math.PI * 0.5, Math.PI, Math.PI * 1.5].forEach((angle) => {
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      ctx.beginPath();
+      ctx.moveTo((range - tickLen) * cos, (range - tickLen) * sin);
+      ctx.lineTo((range + tickLen) * cos, (range + tickLen) * sin);
+      ctx.stroke();
+    });
+
+    // 6. Range read-out badge (Clear, Bold, and Legible)
+    const rangeLabel = `RANGE: ${range}px`;
+    ctx.font = 'bold 12px "Chakra Petch", "JetBrains Mono", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 3;
+    ctx.strokeText(rangeLabel, 0, -range - 8);
+    ctx.fillStyle = '#ffe600';
+    ctx.fillText(rangeLabel, 0, -range - 8);
 
     ctx.restore();
   }
@@ -1878,30 +1944,46 @@ export class GameEngine {
           break;
       }
 
-      // Marked indicator (Astral Eye debuff)
-      if (enemy.markedDamageBonus > 0) {
-        ctx.strokeStyle = '#00f0ff';
-        ctx.lineWidth = 1.5;
-        ctx.strokeRect(-enemy.radius - 5, -enemy.radius - 5, (enemy.radius + 5) * 2, (enemy.radius + 5) * 2);
+      // 1. Selection indicator if enemy is tapped
+      if (this.state.selectedEnemyId === enemy.id) {
+        ctx.save();
+        ctx.strokeStyle = '#ffe600';
+        ctx.lineWidth = 2.5;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.arc(0, 0, enemy.radius + 10, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
       }
 
-      // 2. Segmented Blocky Arcade Health Bar
+      // Marked indicator (Astral Eye debuff)
+      if (enemy.markedDamageBonus > 0) {
+        ctx.save();
+        ctx.strokeStyle = '#00f0ff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, enemy.radius + 6, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // 2. Clear & Segmented Enemy Health Bar + Big Legible Power Badge
       if (!enemy.isBoss) {
-        const barW = Math.max(24, Math.floor(enemy.radius * 2));
-        const barH = 5;
+        const barW = Math.max(36, Math.floor(enemy.radius * 2.5));
+        const barH = 6;
         const barY = -Math.floor(enemy.radius) - 10;
         const hpPercent = Math.max(0, enemy.health / enemy.maxHealth);
 
-        // Black pixel background & frame
+        // Solid high-contrast black border & background
         ctx.fillStyle = '#000000';
         ctx.fillRect(-Math.floor(barW / 2) - 1, barY - 1, barW + 2, barH + 2);
-        ctx.fillStyle = '#222222';
+        ctx.fillStyle = '#18042b';
         ctx.fillRect(-Math.floor(barW / 2), barY, barW, barH);
 
         // Segmented chunky pixels
         const totalSegments = 6;
         const filledSegments = Math.ceil(hpPercent * totalSegments);
-        const segW = Math.max(2, Math.floor((barW - (totalSegments - 1)) / totalSegments));
+        const segW = Math.max(3, Math.floor((barW - (totalSegments - 1)) / totalSegments));
         const hpColor = hpPercent > 0.5 ? '#39ff14' : hpPercent > 0.25 ? '#ffe600' : '#ff0055';
 
         for (let s = 0; s < totalSegments; s++) {
@@ -1910,16 +1992,64 @@ export class GameEngine {
             ctx.fillRect(-Math.floor(barW / 2) + s * (segW + 1), barY, segW, barH);
           }
         }
+
+        // BIGGER & HIGHLY LEGIBLE ENEMY POWER / HEALTH TEXT
+        const currentHp = Math.ceil(enemy.health);
+        const powerText = enemy.armor > 0
+          ? `${currentHp} [${Math.round(enemy.armor * 100)}%🛡]`
+          : `${currentHp}`;
+
+        ctx.font = 'bold 12px "Chakra Petch", "JetBrains Mono", "Segoe UI", sans-serif';
+        ctx.textAlign = 'center';
+
+        const textMetrics = ctx.measureText(powerText);
+        const badgeW = Math.max(barW, Math.ceil(textMetrics.width) + 8);
+        const badgeH = 15;
+        const badgeY = barY - badgeH - 3;
+
+        // Dark pill background plate for instant legibility
+        ctx.fillStyle = 'rgba(5, 1, 18, 0.94)';
+        ctx.fillRect(-Math.floor(badgeW / 2), badgeY, badgeW, badgeH);
+        ctx.strokeStyle = this.state.selectedEnemyId === enemy.id
+          ? '#ffe600'
+          : enemy.armor > 0
+          ? '#f87171'
+          : 'rgba(0, 240, 255, 0.7)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(-Math.floor(badgeW / 2), badgeY, badgeW, badgeH);
+
+        // Power number with 3px black stroke for high contrast
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 2.5;
+        ctx.strokeText(powerText, 0, badgeY + badgeH - 3);
+
+        ctx.fillStyle = enemy.armor > 0 ? '#fca5a5' : '#38bdf8';
+        ctx.fillText(powerText, 0, badgeY + badgeH - 3);
+      } else {
+        // Boss on-field power indicator
+        const bossPowerBadge = `BOSS: ${Math.ceil(enemy.health)} HP`;
+        ctx.font = 'bold 13px "Chakra Petch", "JetBrains Mono", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = 'rgba(6, 2, 16, 0.95)';
+        ctx.fillRect(-65, -enemy.radius - 28, 130, 18);
+        ctx.strokeStyle = '#ff007f';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(-65, -enemy.radius - 28, 130, 18);
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 3;
+        ctx.strokeText(bossPowerBadge, 0, -enemy.radius - 14);
+        ctx.fillStyle = '#ffe600';
+        ctx.fillText(bossPowerBadge, 0, -enemy.radius - 14);
       }
 
       ctx.restore();
     });
 
-    // 3. Boss Health Bar (Top of Canvas) with Arcade Warning Aesthetic
+    // 3. Boss Health Bar (Top of Canvas) with Arcade Warning Aesthetic & Big Legible Power
     const boss = this.enemies.find((e) => e.isBoss);
     if (boss) {
-      const barW = 420;
-      const barH = 14;
+      const barW = 460;
+      const barH = 16;
       const startX = 500 - barW / 2;
       const startY = 40;
       const hpRatio = Math.max(0, boss.health / boss.maxHealth);
@@ -1927,33 +2057,40 @@ export class GameEngine {
       ctx.save();
       // Arcade Boss Cabinet Header
       ctx.fillStyle = 'rgba(6, 2, 16, 0.95)';
-      ctx.fillRect(startX - 10, startY - 24, barW + 20, barH + 34);
+      ctx.fillRect(startX - 12, startY - 26, barW + 24, barH + 46);
 
       ctx.strokeStyle = '#ff007f';
       ctx.lineWidth = 2;
-      ctx.strokeRect(startX - 10, startY - 24, barW + 20, barH + 34);
+      ctx.strokeRect(startX - 12, startY - 26, barW + 24, barH + 46);
 
-      // Warning Title (Pixel Arcade Font)
+      // Warning Title (Bold Legible Font)
       ctx.fillStyle = '#ffe600';
-      ctx.font = 'bold 10px "Press Start 2P", monospace';
+      ctx.font = 'bold 12px "Press Start 2P", "Chakra Petch", monospace';
       ctx.textAlign = 'center';
       ctx.fillText(`▲ WARNING: THE GREAT VOID [PHASE ${boss.phase || 1}] ▲`, 500, startY - 8);
 
       // Outer Health Bar Border
       ctx.strokeStyle = '#00f0ff';
+      ctx.lineWidth = 1.5;
       ctx.strokeRect(startX, startY, barW, barH);
+      ctx.fillStyle = '#120428';
+      ctx.fillRect(startX, startY, barW, barH);
 
-      // Stepped segments
-      const totalSegments = 20;
-      const filledSegments = Math.ceil(hpRatio * totalSegments);
-      const segW = Math.floor((barW - (totalSegments - 1) * 2) / totalSegments);
+      // Stepped segments / smooth fill
+      const grad = ctx.createLinearGradient(startX, 0, startX + barW, 0);
+      grad.addColorStop(0, '#ff007f');
+      grad.addColorStop(1, '#ff0055');
+      ctx.fillStyle = grad;
+      ctx.fillRect(startX + 1, startY + 1, Math.max(0, (barW - 2) * hpRatio), barH - 2);
 
-      for (let s = 0; s < totalSegments; s++) {
-        if (s < filledSegments) {
-          ctx.fillStyle = s < 6 ? '#ff0055' : s < 13 ? '#ffe600' : '#39ff14';
-          ctx.fillRect(startX + 1 + s * (segW + 2), startY + 2, segW, barH - 4);
-        }
-      }
+      // Prominent, Highly Legible Boss Power Text
+      const bossPowerText = `POWER: ${Math.ceil(boss.health)} / ${boss.maxHealth} HP (${Math.round(hpRatio * 100)}%)`;
+      ctx.font = 'bold 12px "Chakra Petch", "JetBrains Mono", sans-serif';
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 3;
+      ctx.strokeText(bossPowerText, 500, startY + barH + 13);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(bossPowerText, 500, startY + barH + 13);
 
       ctx.restore();
     }
@@ -2012,12 +2149,12 @@ export class GameEngine {
       ctx.globalAlpha = ft.alpha;
       const fx = Math.floor(ft.x);
       const fy = Math.floor(ft.y);
-      // Authentic retro arcade pixel font for damage and status
-      ctx.font = 'bold 9px "Press Start 2P", monospace';
+      // Large, bold, highly legible font for damage and status
+      ctx.font = 'bold 13px "Chakra Petch", "JetBrains Mono", sans-serif';
       ctx.textAlign = 'center';
-      // Sharp 1px pixel shadow instead of blurred shadow
-      ctx.fillStyle = '#000000';
-      ctx.fillText(ft.text, fx + 1, fy + 1);
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 3;
+      ctx.strokeText(ft.text, fx, fy);
       ctx.fillStyle = ft.color;
       ctx.fillText(ft.text, fx, fy);
       ctx.restore();

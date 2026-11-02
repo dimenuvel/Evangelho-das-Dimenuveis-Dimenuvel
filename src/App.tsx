@@ -11,7 +11,6 @@ import { GameMap, GameMode, PlayerProgress, SupportedLanguage } from './types/ga
 import { progressService } from './services/storage';
 import { soundManager } from './services/audio';
 import { TRANSLATIONS } from './i18n/translations';
-
 import { MainMenu } from './components/MainMenu';
 import { GameHUD } from './components/GameHUD';
 import { MapSelectModal } from './components/MapSelectModal';
@@ -85,6 +84,7 @@ export default function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [isCreditsOpen, setIsCreditsOpen] = useState(false);
+
   // Tour modal on first launch if not seen
   const [isTourOpen, setIsTourOpen] = useState<boolean>(!progress.hasSeenTour);
 
@@ -111,7 +111,6 @@ export default function App() {
 
   const language = progress.language;
   const t = TRANSLATIONS[language];
-
   const [isMuted, setIsMuted] = useState<boolean>(() => soundManager.getIsMuted());
 
   // Start sound on user interaction
@@ -154,7 +153,7 @@ export default function App() {
       setDialogue(null);
       setGameSessionId((prev) => prev + 1);
 
-      // Initialize game engine
+      // Initialize game engine (which runs the game loop with requestAnimationFrame)
       const engine = new GameEngine(map, mode);
       engineRef.current = engine;
 
@@ -171,7 +170,6 @@ export default function App() {
         if (currentIdx !== -1 && currentIdx + 1 < MAPS.length) {
           progressService.unlockNextMap(map.id, MAPS[currentIdx + 1].id);
         }
-
         setProgress(progressService.get());
         setMatchOutcome({ isVictory: true, stars, score });
 
@@ -233,7 +231,6 @@ export default function App() {
         const quote = isPt
           ? MAP_DIALOGUE_PT[map.id]?.intro || map.dudeIntro
           : map.dudeIntro;
-
         if (quote) {
           setDialogue({
             speaker,
@@ -264,7 +261,6 @@ export default function App() {
       if (!canvasRef.current || !engineRef.current) return;
       const canvas = canvasRef.current;
       const rect = canvas.getBoundingClientRect();
-
       let clientX = 0;
       let clientY = 0;
 
@@ -279,7 +275,6 @@ export default function App() {
       // Map to 1000 x 600 virtual space
       const scaleX = 1000 / rect.width;
       const scaleY = 600 / rect.height;
-
       const virtualX = (clientX - rect.left) * scaleX;
       const virtualY = (clientY - rect.top) * scaleY;
 
@@ -343,7 +338,7 @@ export default function App() {
 
       {screen === 'playing' && (
         <div className="relative w-full h-full flex items-center justify-center bg-black overflow-hidden select-none">
-          {/* Main 1000 x 600 Canvas (Blocky Vintage Arcade) */}
+          {/* Main 1000 x 600 Canvas (Blocky Vintage Arcade with requestAnimationFrame Loop) */}
           <canvas
             ref={canvasRef}
             width={1000}
