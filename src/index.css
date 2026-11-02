@@ -1,0 +1,139 @@
+@import "tailwindcss";
+
+@layer base {
+  html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    font-family: 'Press Start 2P', 'VT323', monospace;
+    background-color: #04010a;
+    color: #e2e8f0;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+    /* Disable font smoothing for raw, blocky vintage arcade text */
+    -webkit-font-smoothing: none;
+    -moz-osx-font-smoothing: none;
+    font-smooth: never;
+    text-rendering: optimizeSpeed;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+  }
+
+  canvas {
+    image-rendering: -moz-crisp-edges;
+    image-rendering: -webkit-crisp-edges;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+  }
+
+  * {
+    -webkit-font-smoothing: none;
+    -moz-osx-font-smoothing: none;
+    font-smooth: never;
+  }
+}
+
+/* Vintage Arcade Typography */
+.font-arcade {
+  font-family: 'Press Start 2P', monospace;
+  image-rendering: pixelated;
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: none;
+}
+
+.font-retro {
+  font-family: 'VT323', monospace;
+  font-size: 1.15em;
+  letter-spacing: 0.06em;
+  image-rendering: pixelated;
+  -webkit-font-smoothing: none;
+}
+
+.font-tech {
+  font-family: 'VT323', monospace;
+  font-size: 1.2em;
+  line-height: 1.25;
+  letter-spacing: 0.04em;
+  image-rendering: pixelated;
+  -webkit-font-smoothing: none;
+}
+
+.font-cinzel {
+  font-family: 'Press Start 2P', monospace;
+}
+
+.font-mono-numbers {
+  font-family: 'VT323', monospace;
+  font-size: 1.2em;
+  font-feature-settings: 'tnum' on, 'zero' on;
+  -webkit-font-smoothing: none;
+}
+
+/* Vintage Arcade CRT Scanlines & Screen Glass (Global Non-intrusive Overlay) */
+.crt-screen-overlay {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 99999;
+  background: linear-gradient(
+    rgba(18, 16, 16, 0) 50%,
+    rgba(0, 0, 0, 0.32) 50%
+  ),
+  linear-gradient(
+    90deg,
+    rgba(255, 0, 0, 0.03),
+    rgba(0, 255, 0, 0.015),
+    rgba(0, 0, 255, 0.03)
+  );
+  background-size: 100% 4px, 6px 100%;
+  box-shadow: inset 0 0 90px rgba(0, 0, 0, 0.8);
+}
+
+/* Blocky Pixel Box Shadows & Arcade Bevels */
+.pixel-box-cyan {
+  border: 2px solid #00f0ff;
+  box-shadow: 3px 3px 0 #000, 0 0 0 1px #005f66;
+}
+
+.pixel-box-yellow {
+  border: 2px solid #ffe600;
+  box-shadow: 3px 3px 0 #000, 0 0 0 1px #807300;
+}
+
+.pixel-box-pink {
+  border: 2px solid #ff007f;
+  box-shadow: 3px 3px 0 #000, 0 0 0 1px #800040;
+}
+
+/* Blinking arcade animation */
+@keyframes arcadeBlink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+.animate-arcade-blink {
+  animation: arcadeBlink 1s infinite;
+}
+
+/* Custom scrollbars for modals and codex */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0a0217;
+  border: 1px solid #1a083d;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #00f0ff;
+  border: 1px solid #000;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #ff007f;
+}

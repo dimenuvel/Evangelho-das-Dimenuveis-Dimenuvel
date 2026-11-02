@@ -1,0 +1,93 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    name: Build Android APKs (Release & Debug)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Accept Android SDK Licenses
+        run: |
+          yes | sdkmanager --licenses || true
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install npm dependencies
+        run: npm ci || npm install
+
+      - name: Build Web Application
+        run: npm run build
+
+      - name: Sync Capacitor Android Platform
+        run: |
+          npx cap add android || true
+          npx cap sync android
+
+      - name: Configure Android Java 17 Compatibility & Permissions
+        run: |
+          # Ensure Gradle wrapper has execution permissions
+          if [ -f "android/gradlew" ]; then
+            chmod +x android/gradlew
+          fi
+
+          # Ensure app/build.gradle sets Java 17 explicitly
+          GRADLE_FILE="android/app/build.gradle"
+          if [ -f "$GRADLE_FILE" ]; then
+            sed -i 's/JavaVersion.VERSION_21/JavaVersion.VERSION_17/g' "$GRADLE_FILE" || true
+            sed -i 's/sourceCompatibility JavaVersion.VERSION_1_8/sourceCompatibility JavaVersion.VERSION_17/g' "$GRADLE_FILE" || true
+            sed -i 's/targetCompatibility JavaVersion.VERSION_1_8/targetCompatibility JavaVersion.VERSION_17/g' "$GRADLE_FILE" || true
+          fi
+
+      - name: Build Android APKs with Gradle
+        run: |
+          cd android
+          ./gradlew assembleDebug assembleRelease --stacktrace
+
+      - name: Locate & Package APKs
+        run: |
+          mkdir -p output-apk
+          # Locate release apk
+          find android/app/build/outputs/apk/release -name "*.apk" -exec cp {} output-apk/Evangelho-das-Dimenuveis-v1.0-release.apk \; || true
+          # Locate debug apk (installable directly on Android phones for instant playtesting)
+          find android/app/build/outputs/apk/debug -name "*.apk" -exec cp {} output-apk/Evangelho-das-Dimenuveis-v1.0-debug.apk \; || true
+          
+          # Fallback copy if paths vary
+          if [ ! -f "output-apk/Evangelho-das-Dimenuveis-v1.0-release.apk" ]; then
+            find android/app/build/outputs/apk -name "*release*.apk" -exec cp {} output-apk/Evangelho-das-Dimenuveis-v1.0-release.apk \; || true
+          fi
+          if [ ! -f "output-apk/Evangelho-das-Dimenuveis-v1.0-debug.apk" ]; then
+            find android/app/build/outputs/apk -name "*debug*.apk" -exec cp {} output-apk/Evangelho-das-Dimenuveis-v1.0-debug.apk \; || true
+          fi
+
+          ls -lah output-apk/
+
+      - name: Upload APK Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Evangelho-das-Dimenuveis-v1.0-APKs
+          path: output-apk/*.apk
+          retention-days: 30
+          if-no-files-found: error

@@ -1,0 +1,6 @@
+{
+  "name": "DIMENUOUS: THE LAST ABIDERS",
+  "description": "A cosmic fantasy tower defense strategy game across the 7 Dimenúveis. Defend the Sacred Ash, command the seven mystical towers, wield Spiral Resonance, and restore equilibrium against the Void.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">DIMENUOUS: The Last Abiders</string>
+    <string name="title_activity_main">DIMENUOUS: The Last Abiders</string>
+    <string name="package_name">com.dimenuous.lastabiders</string>
+    <string name="custom_url_scheme">com.dimenuous.lastabiders</string>
+</resources>
