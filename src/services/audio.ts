@@ -238,27 +238,21 @@ class SoundEngine {
     });
   }
 
-  public playSell() {
+  public playDismantle() {
     this.initContext();
     if (!this.ctx || !this.sfxGain) return;
     const now = this.ctx.currentTime;
-    // Pleasant 2-tone crystalline refund chime
-    [587.33, 880].forEach((f, i) => {
-      const osc = this.ctx!.createOscillator();
-      const gain = this.ctx!.createGain();
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(f, now + i * 0.07);
-      gain.gain.setValueAtTime(0.25, now + i * 0.07);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.07 + 0.22);
-      osc.connect(gain);
-      gain.connect(this.sfxGain!);
-      osc.start(now + i * 0.07);
-      osc.stop(now + i * 0.07 + 0.25);
-    });
-  }
-
-  public playDismantle() {
-    this.playSell();
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(400, now);
+    osc.frequency.exponentialRampToValueAtTime(100, now + 0.2);
+    gain.gain.setValueAtTime(0.25, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+    osc.connect(gain);
+    gain.connect(this.sfxGain);
+    osc.start(now);
+    osc.stop(now + 0.25);
   }
 
   public playEnemyKilled() {

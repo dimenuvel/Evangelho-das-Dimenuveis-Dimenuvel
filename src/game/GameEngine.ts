@@ -285,29 +285,19 @@ export class GameEngine {
     return true;
   }
 
-  /**
-   * Calculates the refund value when selling a tower (default: 75% of total invested essence)
-   */
-  public getTowerSellValue(towerId: string, refundRatio: number = 0.75): number {
-    const tower = this.state.placedTowers.find((t) => t.id === towerId);
-    if (!tower) return 0;
-    const config = TOWERS[tower.type];
-    let totalInvested = config.baseCost;
-    if (tower.tier >= 2 && config.tiers[1]) totalInvested += config.tiers[1].cost;
-    if (tower.tier >= 3 && config.tiers[2]) totalInvested += config.tiers[2].cost;
-    return Math.floor(totalInvested * refundRatio);
-  }
-
-  /**
-   * Sells a placed tower, refunding a percentage of its cost (default 75%) and freeing its socket
-   */
-  public sellTower(towerId: string, refundRatio: number = 0.75): boolean {
+  public dismantleTower(towerId: string): boolean {
     const index = this.state.placedTowers.findIndex((t) => t.id === towerId);
     if (index === -1) return false;
 
     const tower = this.state.placedTowers[index];
-    const refund = this.getTowerSellValue(towerId, refundRatio);
+    const config = TOWERS[tower.type];
 
+    // Calculate refund: 75% of total invested
+    let totalInvested = config.baseCost;
+    if (tower.tier >= 2) totalInvested += config.tiers[1].cost;
+    if (tower.tier >= 3) totalInvested += config.tiers[2].cost;
+
+    const refund = Math.floor(totalInvested * 0.75);
     this.state.essence += refund;
     this.state.placedTowers.splice(index, 1);
 
@@ -315,17 +305,12 @@ export class GameEngine {
       this.state.selectedTowerId = null;
     }
 
-    soundManager.playSell();
+    soundManager.playDismantle();
     this.spawnParticleBurst(tower.x, tower.y, 25, '#fbbf24', 90);
-    this.addFloatingText(`+${refund} Essence (Sold)`, tower.x, tower.y - 25, '#34d399');
+    this.addFloatingText(`+${refund} Essence`, tower.x, tower.y - 25, '#34d399');
 
     this.notifyState();
     return true;
-  }
-
-  // Alias for backward compatibility
-  public dismantleTower(towerId: string): boolean {
-    return this.sellTower(towerId, 0.75);
   }
 
   public activateTowerAbility(towerId: string, tapPoint?: { x: number; y: number }): boolean {
@@ -503,7 +488,7 @@ export class GameEngine {
     // 2. Check if tap is on a placed tower
     const tappedTower = this.state.placedTowers.find((t) => {
       const dist = Math.hypot(t.x - virtualX, t.y - virtualY);
-      return dist <= 36;
+      return dist <= 28;
     });
 
     if (tappedTower) {
@@ -517,7 +502,7 @@ export class GameEngine {
     // 3. Check if tap is on an empty socket
     const tappedSocket = this.state.map.sockets.find((s) => {
       const dist = Math.hypot(s.x - virtualX, s.y - virtualY);
-      return dist <= 38;
+      return dist <= 28;
     });
 
     if (tappedSocket) {
@@ -1563,126 +1548,34 @@ export class GameEngine {
     ctx.save();
     ctx.translate(Math.floor(ash.x), Math.floor(ash.y));
 
-    const equilRatio = Math.max(0, Math.min(1, this.state.equilibrium / 100));
-    const isCritical = equilRatio <= 0.35;
-    const coreColor = isCritical ? '#ff0055' : '#00f0ff';
-    const accentColor = isCritical ? '#ffe600' : '#ff00a0';
-    const tertiaryColor = isCritical ? '#ff3366' : '#ffe600';
+    const equilRatio = this.state.equilibrium / 100;
+    const coreColor = equilRatio > 0.4 ? '#00f0ff' : '#ff0055';
+    const accentColor = equilRatio > 0.4 ? '#ffe600' : '#ff007f';
 
-    // 1. Ambient Background Halo / Energy Vortex Disc
-    const pulse = Math.sin(time * 3) * 0.15 + 0.85;
-    const maxRadius = 32 * pulse;
-    const glowGrad = ctx.createRadialGradient(0, 0, 4, 0, 0, maxRadius);
-    glowGrad.addColorStop(0, isCritical ? 'rgba(255, 0, 85, 0.45)' : 'rgba(0, 240, 255, 0.4)');
-    glowGrad.addColorStop(0.6, isCritical ? 'rgba(255, 0, 127, 0.15)' : 'rgba(168, 85, 247, 0.18)');
-    glowGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-    ctx.fillStyle = glowGrad;
-    ctx.beginPath();
-    ctx.arc(0, 0, maxRadius, 0, Math.PI * 2);
-    ctx.fill();
-
-    // 2. Outer Rotating Halo Ring with Starlight Nodes
+    // 1. Concentric Stepped Pixel Frames
     ctx.save();
-    ctx.rotate(time * 0.8);
-    ctx.strokeStyle = isCritical ? 'rgba(255, 0, 85, 0.4)' : 'rgba(0, 240, 255, 0.35)';
-    ctx.lineWidth = 1.5;
-    ctx.setLineDash([4, 6]);
-    ctx.beginPath();
-    ctx.arc(0, 0, 28, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    // Orbiting sentinel nodes along outer ring
-    for (let i = 0; i < 4; i++) {
-      const angle = (i * Math.PI) / 2;
-      const nx = Math.cos(angle) * 28;
-      const ny = Math.sin(angle) * 28;
-      ctx.fillStyle = tertiaryColor;
-      ctx.beginPath();
-      ctx.arc(nx, ny, 2.5, 0, Math.PI * 2);
-      ctx.fill();
-    }
+    ctx.rotate(time * 0.5);
+    ctx.strokeStyle = coreColor;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(-26, -26, 52, 52);
+    ctx.strokeStyle = accentColor;
+    ctx.strokeRect(-18, -18, 36, 36);
     ctx.restore();
 
-    // 3. Multi-Arm Fluid Spinning Spiral (The Spiral of Existence)
-    const arms = 3;
-    const spinAngle = time * 2.2; // Smooth continuous rotation
-    const spiralTurns = 2.4; // Number of revolutions
-    const steps = 60; // Smooth curve segments
-
-    for (let a = 0; a < arms; a++) {
-      const armOffset = (a * 2 * Math.PI) / arms;
-      const armColor = a === 0 ? coreColor : a === 1 ? accentColor : tertiaryColor;
-
-      ctx.save();
-      ctx.strokeStyle = armColor;
-      ctx.lineWidth = 2.2;
-      ctx.lineCap = 'round';
-      ctx.shadowColor = armColor;
-      ctx.shadowBlur = 8;
-
-      ctx.beginPath();
-      let started = false;
-      for (let s = 0; s <= steps; s++) {
-        const t = s / steps;
-        const theta = t * spiralTurns * 2 * Math.PI;
-        // Archimedean spiral: r = a * theta
-        const r = 2.5 + t * 24;
-        const currentAngle = theta + spinAngle + armOffset;
-        const x = Math.cos(currentAngle) * r;
-        const y = Math.sin(currentAngle) * r;
-
-        if (!started) {
-          ctx.moveTo(x, y);
-          started = true;
-        } else {
-          ctx.lineTo(x, y);
-        }
-      }
-      ctx.stroke();
-      ctx.restore();
-    }
-
-    // 4. Inward-Flowing Ingestion Particles (Energy Sparks drifting into the Vortex)
-    const particleCount = 5;
-    for (let p = 0; p < particleCount; p++) {
-      const pPhase = (time * 1.4 + p / particleCount) % 1;
-      const pRadius = (1 - pPhase) * 25 + 3; // spirals inward
-      const pAngle = pPhase * 4 * Math.PI + p * ((2 * Math.PI) / particleCount) + spinAngle;
-      const px = Math.cos(pAngle) * pRadius;
-      const py = Math.sin(pAngle) * pRadius;
-
-      ctx.fillStyle = '#ffffff';
-      ctx.shadowColor = accentColor;
-      ctx.shadowBlur = 6;
-      ctx.beginPath();
-      ctx.arc(px, py, 1.8 * (1 - pPhase * 0.4), 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    // 5. Central Singularity / Core Eye (The Heart of the Spiral)
-    ctx.save();
-    ctx.shadowColor = coreColor;
-    ctx.shadowBlur = 12;
-
-    // Glowing core outer circle
+    // 2. Central Core Pixel Block
     ctx.fillStyle = coreColor;
-    ctx.beginPath();
-    ctx.arc(0, 0, 7 + Math.sin(time * 6) * 1, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Inner bright gold core
-    ctx.fillStyle = tertiaryColor;
-    ctx.beginPath();
-    ctx.arc(0, 0, 4.5, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Hot center singularity point
+    ctx.fillRect(-10, -10, 20, 20);
+    ctx.fillStyle = '#ffe600';
+    ctx.fillRect(-6, -6, 12, 12);
     ctx.fillStyle = '#ffffff';
-    ctx.beginPath();
-    ctx.arc(0, 0, 2.2, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.fillRect(-3, -3, 6, 6);
 
-    ctx.restore();
+    // 3. Blocky Pixel Reticle Nodes
+    ctx.fillStyle = '#00f0ff';
+    ctx.fillRect(-24, -3, 6, 6);
+    ctx.fillRect(18, -3, 6, 6);
+    ctx.fillRect(-3, -24, 6, 6);
+    ctx.fillRect(-3, 18, 6, 6);
 
     ctx.restore();
   }

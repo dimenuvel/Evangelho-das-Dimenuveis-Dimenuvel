@@ -120,12 +120,6 @@ class ProgressService {
     this.save(current);
   }
 
-  public setCrtVisuals(crt: boolean) {
-    const current = this.get();
-    current.settings = { ...current.settings, crtVisuals: crt };
-    this.save(current);
-  }
-
   public resetAll() {
     this.save({ ...DEFAULT_PROGRESS });
   }

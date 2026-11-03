@@ -130,13 +130,6 @@ export default function App() {
     setProgress(progressService.get());
   };
 
-  const handleToggleCrt = useCallback(() => {
-    soundManager.playBuild();
-    const nextVal = progress.settings.crtVisuals === false ? true : false;
-    progressService.setCrtVisuals(nextVal);
-    setProgress(progressService.get());
-  }, [progress.settings.crtVisuals]);
-
   const handleCompleteTour = (chosenName: string) => {
     progressService.setPlayerName(chosenName);
     progressService.setHasSeenTour(true);
@@ -262,29 +255,18 @@ export default function App() {
     };
   }, [screen, gameSessionId, currentMap.id]);
 
-  const lastPointerTimeRef = useRef(0);
-
   // Touch / Click coordinate mapping from viewport to 1000x600 virtual coordinate space
   const handleCanvasInteraction = useCallback(
-    (e: React.PointerEvent<HTMLCanvasElement> | React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-      const now = performance.now();
-      // Ignore delayed synthetic clicks from mobile browser if pointerdown already processed
-      if (e.type === 'click' && now - lastPointerTimeRef.current < 500) {
-        return;
-      }
-      if (e.type === 'pointerdown' || e.type === 'touchstart') {
-        lastPointerTimeRef.current = now;
-      }
-
+    (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
       if (!canvasRef.current || !engineRef.current) return;
       const canvas = canvasRef.current;
       const rect = canvas.getBoundingClientRect();
       let clientX = 0;
       let clientY = 0;
 
-      if ('touches' in e && (e as React.TouchEvent).touches.length > 0) {
-        clientX = (e as React.TouchEvent).touches[0].clientX;
-        clientY = (e as React.TouchEvent).touches[0].clientY;
+      if ('touches' in e && e.touches.length > 0) {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
       } else if ('clientX' in e) {
         clientX = (e as React.MouseEvent).clientX;
         clientY = (e as React.MouseEvent).clientY;
@@ -355,49 +337,36 @@ export default function App() {
       )}
 
       {screen === 'playing' && (
-        <div className="relative w-full h-full flex flex-col bg-black overflow-hidden select-none">
-          {engineRef.current && engineState ? (
+        <div className="relative w-full h-full flex items-center justify-center bg-black overflow-hidden select-none">
+          {/* Main 1000 x 600 Canvas (Blocky Vintage Arcade with requestAnimationFrame Loop) */}
+          <canvas
+            ref={canvasRef}
+            width={1000}
+            height={600}
+            onClick={handleCanvasInteraction}
+            onTouchStart={handleCanvasInteraction}
+            className="max-w-full max-h-full object-contain cursor-crosshair shadow-[0_0_40px_rgba(0,0,0,0.9)]"
+            style={{ imageRendering: 'pixelated' }}
+          />
+
+          {/* In-Game HUD overlay */}
+          {engineRef.current && engineState && (
             <GameHUD
               engine={engineRef.current}
               state={engineState}
               language={progress.language}
-              isCrtOn={progress.settings.crtVisuals !== false}
-              onToggleCrt={handleToggleCrt}
               onExit={() => {
                 if (engineRef.current) engineRef.current.detachCanvas();
                 setScreen('menu');
               }}
-            >
-              <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
-                {/* Main 1000 x 600 Canvas (Blocky Vintage Arcade with requestAnimationFrame Loop) */}
-                <canvas
-                  ref={canvasRef}
-                  width={1000}
-                  height={600}
-                  onPointerDown={handleCanvasInteraction}
-                  onClick={handleCanvasInteraction}
-                  className="max-w-full max-h-full object-contain cursor-crosshair shadow-[0_0_40px_rgba(0,0,0,0.9)] select-none"
-                  style={{ imageRendering: 'pixelated', touchAction: 'none' }}
-                />
+            />
+          )}
 
-                {/* The Dude / O Cara Advice Toast */}
-                {dudeToast && (
-                  <div className="absolute top-2 left-1/2 -translate-x-1/2 z-40 bg-[#0d0221]/95 border-2 border-yellow-400 px-3 py-1.5 rounded shadow-[0_0_15px_rgba(255,230,0,0.4)] backdrop-blur-md text-yellow-300 text-xs font-tech italic animate-bounce flex items-center gap-2 pointer-events-none">
-                    <span className="text-[9px] font-arcade text-pink-400">▲ {t.theDude.toUpperCase()}:</span>
-                    <span>"{dudeToast}"</span>
-                  </div>
-                )}
-              </div>
-            </GameHUD>
-          ) : (
-            <div className="relative w-full h-full flex items-center justify-center">
-              <canvas
-                ref={canvasRef}
-                width={1000}
-                height={600}
-                className="max-w-full max-h-full object-contain"
-                style={{ imageRendering: 'pixelated' }}
-              />
+          {/* The Dude / O Cara Advice Toast */}
+          {dudeToast && (
+            <div className="absolute top-16 left-1/2 -translate-x-1/2 z-40 bg-[#0d0221]/95 border-2 border-yellow-400 px-4 py-2 rounded shadow-[0_0_15px_rgba(255,230,0,0.4)] backdrop-blur-md text-yellow-300 text-xs font-tech italic animate-bounce flex items-center gap-2">
+              <span className="text-[9px] font-arcade text-pink-400">▲ {t.theDude.toUpperCase()}:</span>
+              <span>"{dudeToast}"</span>
             </div>
           )}
 
@@ -480,7 +449,6 @@ export default function App() {
       {isCreditsOpen && (
         <CreditsModal
           language={progress.language}
-          crtVisuals={progress.settings.crtVisuals !== false}
           onClose={() => setIsCreditsOpen(false)}
         />
       )}

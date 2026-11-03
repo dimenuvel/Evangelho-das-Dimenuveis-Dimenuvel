@@ -16,8 +16,6 @@ import {
   Crosshair,
   X,
   Skull,
-  Coins,
-  Tv,
 } from 'lucide-react';
 import { GameEngine, GameEngineState } from '../game/GameEngine';
 import { TOWERS } from '../data/towers';
@@ -29,9 +27,6 @@ interface GameHUDProps {
   state: GameEngineState;
   language: SupportedLanguage;
   onExit: () => void;
-  children?: React.ReactNode;
-  isCrtOn?: boolean;
-  onToggleCrt?: () => void;
 }
 
 export const GameHUD: React.FC<GameHUDProps> = ({
@@ -39,9 +34,6 @@ export const GameHUD: React.FC<GameHUDProps> = ({
   state,
   language,
   onExit,
-  children,
-  isCrtOn,
-  onToggleCrt,
 }) => {
   const [showResonancePowers, setShowResonancePowers] = useState(false);
   const t = TRANSLATIONS[language];
@@ -128,13 +120,11 @@ export const GameHUD: React.FC<GameHUDProps> = ({
     }
   };
 
-  const handleSell = () => {
+  const handleDismantle = () => {
     if (state.selectedTowerId) {
-      engine.sellTower(state.selectedTowerId);
+      engine.dismantleTower(state.selectedTowerId);
     }
   };
-
-  const handleDismantle = handleSell;
 
   const handleActivateAbility = () => {
     if (state.selectedTowerId) {
@@ -162,10 +152,9 @@ export const GameHUD: React.FC<GameHUDProps> = ({
       : 'bg-[#ff0055]';
 
   return (
-    <div className="relative w-full h-full flex flex-col justify-between select-none z-30 overflow-hidden">
-      {/* TOP RETRO ARCADE STATUS DASHBOARD - SITS DIRECTLY ABOVE THE MAP */}
-      <header className="w-full shrink-0 p-1 sm:p-2 z-30 pointer-events-auto">
-        <div className="w-full flex flex-wrap md:flex-nowrap landscape:flex-nowrap items-center justify-between gap-1.5 sm:gap-2 md:gap-3 bg-[#070114]/95 border border-cyan-500/50 rounded-lg px-2 sm:px-3 py-1 sm:py-1.5 shadow-[0_0_15px_rgba(0,240,255,0.2)] backdrop-blur-md">
+    <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-2 sm:p-3 select-none z-30">
+      {/* TOP RETRO ARCADE STATUS DASHBOARD */}
+      <div className="w-full flex flex-wrap md:flex-nowrap landscape:flex-nowrap items-center justify-between gap-1.5 sm:gap-2 md:gap-3 pointer-events-auto bg-[#070114]/95 border border-cyan-500/50 rounded-lg px-2 sm:px-3 py-1.5 shadow-[0_0_15px_rgba(0,240,255,0.2)] backdrop-blur-md">
         {/* Left: Menu Exit, Credits/Essence, Wave, Score */}
         <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 order-1 shrink-0">
           <button
@@ -175,25 +164,6 @@ export const GameHUD: React.FC<GameHUDProps> = ({
           >
             <Menu className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </button>
-
-          {/* Quick CRT Toggle */}
-          {onToggleCrt && (
-            <button
-              onClick={onToggleCrt}
-              className={`p-1 sm:p-1.5 border rounded transition-all active:scale-95 shadow shrink-0 ${
-                isCrtOn !== false
-                  ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300 shadow-[0_0_8px_rgba(0,240,255,0.4)]'
-                  : 'bg-[#12042b] border-purple-900/50 text-slate-500 hover:text-slate-300'
-              }`}
-              title={
-                isCrtOn !== false
-                  ? (isPt ? 'Efeito CRT: LIGADO (Toque para desligar)' : 'CRT Effect: ON (Tap to toggle off)')
-                  : (isPt ? 'Efeito CRT: DESLIGADO (Toque para ligar)' : 'CRT Effect: OFF (Tap to toggle on)')
-              }
-            >
-              <Tv className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            </button>
-          )}
 
           {/* Credits / Essence */}
           <div className="flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 bg-[#0e0324] border border-yellow-400/50 rounded shadow-[0_0_8px_rgba(255,230,0,0.2)] shrink-0 whitespace-nowrap">
@@ -345,36 +315,24 @@ export const GameHUD: React.FC<GameHUDProps> = ({
             />
           </div>
         </div>
-        </div>
-      </header>
+      </div>
 
-      {/* CENTER MAP CONTAINER - SITUATED BETWEEN TOP HUD AND BOTTOM CONTROLS */}
-      <main className="relative flex-1 min-h-0 w-full flex items-center justify-center overflow-hidden">
-        {children}
-      </main>
-
-      {/* BOTTOM RETRO ARCADE DOCK: TOWER DEPLOYMENT & INSPECTOR - SITS DIRECTLY BELOW THE MAP */}
-      <footer className="w-full shrink-0 min-h-[50px] sm:min-h-[56px] p-1 sm:p-2 z-30 pointer-events-auto flex items-center">
-        <div className="w-full flex flex-row items-center justify-between gap-1.5 sm:gap-2">
-        {/* Left: Wave Summon Button or Active Status Badge */}
-        <div className="flex items-center gap-2 shrink-0">
-          {!state.isWaveActive ? (
+      {/* BOTTOM RETRO ARCADE DOCK: TOWER DEPLOYMENT & INSPECTOR */}
+      <div className="w-full flex flex-col-reverse sm:flex-row items-stretch sm:items-end justify-between gap-2 sm:gap-3 pointer-events-auto">
+        {/* Left: Wave Summon Button */}
+        <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
+          {!state.isWaveActive && (
             <button
               onClick={() => engine.startNextWave()}
-              className="px-2.5 sm:px-4 py-1.5 sm:py-2 bg-gradient-to-r from-yellow-400 via-amber-500 to-pink-500 hover:from-yellow-300 hover:to-pink-400 text-slate-950 font-arcade font-bold text-[8px] sm:text-[10px] rounded border border-yellow-200 shadow-[0_0_15px_rgba(255,230,0,0.6)] transition-all flex items-center gap-1.5 sm:gap-2 active:scale-95 animate-pulse whitespace-nowrap shrink-0"
+              className="px-3 sm:px-4 py-2 bg-gradient-to-r from-yellow-400 via-amber-500 to-pink-500 hover:from-yellow-300 hover:to-pink-400 text-slate-950 font-arcade font-bold text-[9px] sm:text-[10px] rounded border border-yellow-200 shadow-[0_0_15px_rgba(255,230,0,0.6)] transition-all flex items-center gap-2 active:scale-95 animate-pulse whitespace-nowrap shrink-0"
             >
-              <FastForward className="w-3 h-3 sm:w-3.5 sm:h-3.5 fill-current shrink-0" />
+              <FastForward className="w-3.5 h-3.5 fill-current shrink-0" />
               <span className="whitespace-nowrap">
                 {state.currentWaveIndex === 0
-                  ? (isPt ? 'INICIAR 01' : 'START 01')
-                  : (isPt ? `ONDA ${(state.currentWaveIndex + 1).toString().padStart(2, '0')}` : `WAVE ${(state.currentWaveIndex + 1).toString().padStart(2, '0')}`)}
+                  ? (isPt ? 'INICIAR ONDA 01' : 'INITIATE WAVE 01')
+                  : (isPt ? `CHAMAR ONDA ${(state.currentWaveIndex + 1).toString().padStart(2, '0')}` : `SUMMON WAVE ${(state.currentWaveIndex + 1).toString().padStart(2, '0')}`)}
               </span>
             </button>
-          ) : (
-            <div className="px-2 sm:px-3 py-1.5 bg-[#0e0324] border border-pink-500/50 rounded flex items-center gap-1.5 text-pink-300 text-[8px] sm:text-[9px] font-arcade shrink-0 shadow">
-              <span className="w-1.5 h-1.5 rounded-full bg-pink-500 animate-ping shrink-0" />
-              <span>{isPt ? 'EM ONDA' : 'IN WAVE'}</span>
-            </div>
           )}
         </div>
 
@@ -507,24 +465,23 @@ export const GameHUD: React.FC<GameHUDProps> = ({
                 </span>
               </button>
 
-              {/* Sell Tower Button (75% essence refund) */}
+              {/* Dismantle Button */}
               <button
-                onClick={handleSell}
-                className="px-2 sm:px-2.5 py-1.5 bg-amber-950/70 hover:bg-amber-900/90 border border-amber-500/60 hover:border-yellow-400 text-yellow-300 hover:text-white rounded text-[8px] sm:text-[9px] font-arcade font-bold flex items-center gap-1 shadow transition-all active:scale-95 shrink-0"
-                title={isPt ? `Vender torre por ${engine.getTowerSellValue(selectedTower.id)} essência (75%)` : `Sell tower for ${engine.getTowerSellValue(selectedTower.id)} essence (75% refund)`}
+                onClick={handleDismantle}
+                className="p-1.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-500/50 text-rose-300 rounded text-[9px] transition-all active:scale-95 shrink-0"
+                title={t.dismantle}
               >
-                <Coins className="w-3.5 h-3.5 text-yellow-400 shrink-0" />
-                <span>{isPt ? 'VENDER' : 'SELL'} (+{engine.getTowerSellValue(selectedTower.id)})</span>
+                <Trash2 className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
         ) : selectedSocket ? (
-          // BUILD NEW TOWER TRAY (ARCADE WEAPON SLOTS)
-          <div className="bg-[#09021a]/95 border-2 border-yellow-400 rounded-lg p-1 sm:p-1.5 shadow-[0_0_20px_rgba(255,230,0,0.3)] backdrop-blur-md flex items-center gap-1 sm:gap-1.5 overflow-x-auto max-w-full">
-            <span className="text-[8px] sm:text-[9px] font-arcade uppercase text-yellow-300 px-1 shrink-0 whitespace-nowrap">
+          // BUILD NEW TOWER TRAY (ARCADE WEAPON SLOTS - FULL LABELS WITHOUT TRUNCATION)
+          <div className="bg-[#09021a]/95 border-2 border-yellow-400 rounded-lg p-1.5 sm:p-2 shadow-[0_0_20px_rgba(255,230,0,0.3)] backdrop-blur-md flex items-center gap-1.5 sm:gap-2 overflow-x-auto max-w-full">
+            <span className="text-[9px] font-arcade uppercase text-yellow-300 px-1 shrink-0 whitespace-nowrap">
               {isPt ? 'CRIAR:' : 'DEPLOY:'}
             </span>
-            {towerTypes.map((type) => {
+            {towerTypes.map((type, idx) => {
               const cfg = TOWERS[type];
               const layer = DIMENUVEL_LAYERS[cfg.layer];
               const canAfford = state.essence >= cfg.baseCost;
@@ -533,61 +490,50 @@ export const GameHUD: React.FC<GameHUDProps> = ({
               return (
                 <button
                   key={type}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleBuild(type);
-                  }}
+                  onClick={() => handleBuild(type)}
                   disabled={!canAfford}
-                  className={`flex flex-col items-center px-1.5 py-0.5 sm:py-1 rounded border transition-all shrink-0 active:scale-95 min-w-[56px] sm:min-w-[66px] ${
+                  className={`flex flex-col items-center px-2 py-1.5 rounded border transition-all shrink-0 active:scale-95 min-w-[72px] sm:min-w-[80px] ${
                     canAfford
                       ? 'bg-[#150530] hover:bg-[#250a50] border-cyan-400 hover:border-yellow-300 shadow-[0_0_8px_rgba(0,240,255,0.2)]'
                       : 'bg-[#0d0320]/60 border-purple-900/40 opacity-40 cursor-not-allowed'
                   }`}
                 >
-                  <span className="text-xs sm:text-sm font-bold" style={{ color: layer.hex }}>
+                  <div className="flex items-center justify-between w-full text-[8px] font-arcade text-slate-500 px-0.5">
+                    <span>#{idx + 1}</span>
+                  </div>
+                  <span className="text-sm font-bold my-0.5" style={{ color: layer.hex }}>
                     {cfg.symbol}
                   </span>
-                  <span className="text-[8px] font-arcade font-bold text-slate-200 whitespace-nowrap leading-none mt-0.5">
+                  <span className="text-[8px] sm:text-[9px] font-arcade font-bold text-slate-200 whitespace-nowrap">
                     {displayName}
                   </span>
-                  <span className="text-[8px] font-arcade text-yellow-300 whitespace-nowrap leading-none mt-0.5">
+                  <span className="text-[9px] font-arcade text-yellow-300 whitespace-nowrap">
                     {cfg.baseCost}
                   </span>
                 </button>
               );
             })}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                engine.deselect();
-              }}
-              className="p-1 sm:p-1.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded text-slate-300 hover:text-white transition-all active:scale-95 shrink-0 ml-1"
-              title={isPt ? 'Fechar' : 'Close'}
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
           </div>
         ) : (
           // IDLE RETRO MARQUEE HINT (SHOWS LIVE ENEMY COUNT & PROMPT)
-          <div className="px-2.5 sm:px-3 py-1.5 bg-[#09021a]/90 border border-cyan-500/30 rounded text-[8px] sm:text-[9px] font-arcade text-cyan-300/90 shadow backdrop-blur-sm flex items-center gap-1.5 sm:gap-2 whitespace-nowrap overflow-x-auto max-w-full">
+          <div className="px-3 py-1.5 bg-[#09021a]/90 border border-cyan-500/30 rounded text-[8px] sm:text-[9px] font-arcade text-cyan-300/90 shadow backdrop-blur-sm hidden sm:flex items-center gap-2 whitespace-nowrap">
             {state.isWaveActive && engine.enemies.length > 0 ? (
               <span className="text-yellow-300 flex items-center gap-1.5">
-                <Skull className="w-3.5 h-3.5 text-red-400 animate-pulse shrink-0" />
+                <Skull className="w-3.5 h-3.5 text-red-400 animate-pulse" />
                 <span>
-                  {engine.enemies.length} {isPt ? 'INVASORES ATIVOS' : 'INVADERS ACTIVE'}
+                  {engine.enemies.length} {isPt ? 'INVASORES ATIVOS · TOQUE EM UM INIMIGO PARA DETALHES' : 'INVADERS ACTIVE · TAP ENEMY FOR INTEL'}
                 </span>
               </span>
             ) : (
               <span>
                 {isPt
-                  ? '▲ TOQUE NO SOQUETE PARA CONSTRUIR ▲'
-                  : '▲ TAP SOCKET TO BUILD ▲'}
+                  ? '▲ TOQUE NO SOQUETE PARA CONSTRUIR · TOQUE NA TORRE PARA APRIMORAR ▲'
+                  : '▲ TAP SOCKET TO DEPLOY WEAPON · TAP TOWER TO UPGRADE ▲'}
               </span>
             )}
           </div>
         )}
       </div>
-      </footer>
     </div>
   );
 };
