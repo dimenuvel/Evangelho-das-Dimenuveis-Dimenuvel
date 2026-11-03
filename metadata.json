@@ -1,6 +1,6 @@
 {
-  "name": "",
-  "description": "",
+  "name": "Dimenuous: The Last Abiders",
+  "description": "A cosmic tower defense strategy game where you guide the abiders, align ancient towers, and defend against cosmic waves.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

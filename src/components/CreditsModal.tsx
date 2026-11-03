@@ -20,6 +20,7 @@ import { soundManager } from '../services/audio';
 interface CreditsModalProps {
   language: SupportedLanguage;
   onClose: () => void;
+  crtVisuals?: boolean;
 }
 
 interface CreditEntry {
@@ -234,33 +235,66 @@ const CREDITS_DATA: CreditEntry[] = [
   },
 ];
 
-export const CreditsModal: React.FC<CreditsModalProps> = ({ language, onClose }) => {
+export const CreditsModal: React.FC<CreditsModalProps> = ({ language, onClose, crtVisuals }) => {
   const isPt = language === 'pt';
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const scrollPosRef = useRef<number>(0);
+  const isInteractingRef = useRef<boolean>(false);
 
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
   const [speedMultiplier, setSpeedMultiplier] = useState<number>(1);
-  const [isCrtOn, setIsCrtOn] = useState<boolean>(true);
+  const isCrtOn = crtVisuals ?? true;
 
-  // Auto-scrolling engine
+  // Sync scroll tracker on manual scroll / touch
+  const handleScroll = () => {
+    if (scrollRef.current && isInteractingRef.current) {
+      scrollPosRef.current = scrollRef.current.scrollTop;
+    }
+  };
+
+  const handlePointerDown = () => {
+    isInteractingRef.current = true;
+    if (scrollRef.current) {
+      scrollPosRef.current = scrollRef.current.scrollTop;
+    }
+  };
+
+  const handlePointerUp = () => {
+    isInteractingRef.current = false;
+    if (scrollRef.current) {
+      scrollPosRef.current = scrollRef.current.scrollTop;
+    }
+  };
+
+  // Auto-scrolling engine with subpixel accumulator & reliable speed multipliers
   useEffect(() => {
     let animId: number;
     let lastTime = performance.now();
 
+    if (scrollRef.current) {
+      scrollPosRef.current = scrollRef.current.scrollTop;
+    }
+
     const scrollLoop = (time: number) => {
-      const dt = (time - lastTime) / 1000;
+      // Clamp dt to max 0.05s to prevent massive jumps when switching tabs or window blur
+      const dt = Math.min((time - lastTime) / 1000, 0.05);
       lastTime = time;
 
-      if (isPlaying && scrollRef.current) {
-        const baseSpeed = 48; // pixels per second
-        scrollRef.current.scrollTop += baseSpeed * speedMultiplier * dt;
+      if (isPlaying && scrollRef.current && !isInteractingRef.current) {
+        const baseSpeed = 50; // pixels per second at 1X
+        const container = scrollRef.current;
+        const maxScroll = container.scrollHeight - container.clientHeight;
 
-        // Auto restart if reached bottom
-        if (
-          scrollRef.current.scrollTop + scrollRef.current.clientHeight >=
-          scrollRef.current.scrollHeight - 4
-        ) {
-          // Reached end, pause gently or stay at bottom
+        if (maxScroll > 0) {
+          scrollPosRef.current += baseSpeed * speedMultiplier * dt;
+
+          if (scrollPosRef.current >= maxScroll) {
+            scrollPosRef.current = maxScroll;
+            container.scrollTop = maxScroll;
+            setIsPlaying(false);
+          } else {
+            container.scrollTop = scrollPosRef.current;
+          }
         }
       }
 
@@ -273,13 +307,26 @@ export const CreditsModal: React.FC<CreditsModalProps> = ({ language, onClose })
 
   const handleResetScroll = () => {
     soundManager.playBuild();
+    scrollPosRef.current = 0;
     if (scrollRef.current) {
       scrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
     }
+    setIsPlaying(true);
   };
 
   const handleTogglePlay = () => {
     soundManager.playBuild();
+    if (!isPlaying && scrollRef.current) {
+      const container = scrollRef.current;
+      const maxScroll = container.scrollHeight - container.clientHeight;
+      // If at bottom, reset to top on resume
+      if (container.scrollTop >= maxScroll - 5) {
+        scrollPosRef.current = 0;
+        container.scrollTop = 0;
+      } else {
+        scrollPosRef.current = container.scrollTop;
+      }
+    }
     setIsPlaying((prev) => !prev);
   };
 
@@ -347,10 +394,11 @@ export const CreditsModal: React.FC<CreditsModalProps> = ({ language, onClose })
 
             <button
               onClick={cycleSpeed}
-              className="px-2 py-1 bg-[#1a053c] hover:bg-[#2b0863] border border-cyan-400 rounded text-[9px] font-arcade text-yellow-300 transition-all active:scale-95"
+              className="px-2 py-1 bg-[#1a053c] hover:bg-[#2b0863] border border-cyan-400 rounded text-[9px] font-arcade text-yellow-300 transition-all active:scale-95 flex items-center gap-1"
               title={isPt ? 'Alterar Velocidade' : 'Change Speed'}
             >
-              {speedMultiplier}X
+              <FastForward className="w-3 h-3 text-cyan-400" />
+              <span>{speedMultiplier}X</span>
             </button>
 
             <button
@@ -374,7 +422,17 @@ export const CreditsModal: React.FC<CreditsModalProps> = ({ language, onClose })
         {/* Scrollable Content Container */}
         <div
           ref={scrollRef}
-          className="flex-1 overflow-y-auto overflow-x-hidden p-6 sm:p-10 space-y-12 bg-gradient-to-b from-[#060112] via-[#090218] to-[#04000a] text-center font-tech relative z-10 scroll-smooth"
+          onScroll={handleScroll}
+          onPointerDown={handlePointerDown}
+          onPointerUp={handlePointerUp}
+          onTouchStart={handlePointerDown}
+          onTouchEnd={handlePointerUp}
+          onWheel={() => {
+            if (scrollRef.current) {
+              scrollPosRef.current = scrollRef.current.scrollTop;
+            }
+          }}
+          className="flex-1 overflow-y-auto overflow-x-hidden p-6 sm:p-10 space-y-12 bg-gradient-to-b from-[#060112] via-[#090218] to-[#04000a] text-center font-tech relative z-10"
         >
           {/* Top Cosmic Emblem */}
           <div className="pt-4 space-y-3">
